@@ -42,6 +42,7 @@ class App_Apiendpoint_RoomLookup extends Ot_Api_EndpointTemplate
         }
 
         $courseTable = new App_Model_DbTable_Course();
+        $instructorTable = new App_Model_DbTable_CourseInstructor();
         $courses = $courseTable->getCoursesByRoomsAndDate($roomId, $day);   //Array of courses in room on day?  //Can also use getCourses?
         $days = array(
             'Mon' => 'monday',
@@ -56,58 +57,18 @@ class App_Apiendpoint_RoomLookup extends Ot_Api_EndpointTemplate
         {
             foreach($days as $d)
             {
-                if($c[$d] == 1)
+                if($c[$d] == 1) array_push($daysTaught, $d);    //Add days to array
             }
             $courseDetails = array(
                             'buildingName' => $buildingName,
                             'roomNumber' => $roomNumber,
                             'className' => $c['name'],
-                            'daysTaught'
+                            'daysTaught' => $daysTaught,
+                            'timeTaught' => $c['startTime'],
+                            'instructorInfo' => instructorTable->find($c);
             );
+            array_push($result, $courseDetails);
         }
-
-
-        $courseDba = $courseTable->getAdapter();
-        // Select only what we need from the start so we don't have to clean up later
-        $select = $courseDba->select()
-                        ->from($courseTable->_name, array(
-                                'courseId',
-                                'prefix_long',
-                                'prefix',
-                                'number',
-                                'section',
-                                'name',
-                                'semesterId',
-                                'startTime',
-                                'endTime',
-                                'longDescription',
-                                'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'))
-                        ->where($courseDba->quoteInto('prefix = ?', $coursePrefix) . ' AND ' . $courseDba->quoteInto('number = ?', $courseNumber))
-                        ->order(array('section'));
-        $result = $courseDba->fetchAll($select);
-        $topCourse = $result[0];
-        $course = array(
-            'prefix' => $topCourse['prefix'],
-            'prefix_name' => $topCourse['prefix_long'],
-            'number' => $topCourse['number'],
-            'name' => $topCourse['name'],
-            'description' => $topCourse['longDescription'],
-            'sections' => array()
-        );
-        $semesterTable = new App_Model_DbTable_Semester();
-        $semester = $semesterTable->find($topCourse['semesterId']);
-        $course['semester'] = $semester['name'];
-        foreach ($result as $c) {
-            $section = array(
-                    'courseId' => $c['courseId'],
-                    'section' => $c['section'],
-                    'startTime' => $c['startTime'],
-                    'endTime' => $c['endTime'],
-            );
-            $days = array_splice($c, 11, 7, null);
-            $section['days'] = Internal_Format_CourseDays::format($days);
-            $course['sections'][] = $section;
-        }
-        return $course;
+        return $result;
     }
 }
