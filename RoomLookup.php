@@ -11,6 +11,8 @@ class App_Apiendpoint_RoomLookup extends Ot_Api_EndpointTemplate
      *   - Room number
      *   - Day
      */
+    //ssh -p24 jhsu@web00cie.unity.ncsu.edu
+    //cd /afs/unity/web/i/itdapps5/releases/mobileapi/1.1.0-rc.4
 
     //App_Model_DbTable_Course->getCoursesByRoomsAndDate
     public function get($params)
@@ -21,7 +23,6 @@ class App_Apiendpoint_RoomLookup extends Ot_Api_EndpointTemplate
         if (!isset($params['roomNumber'])) {
             throw new Ot_Exception_ApiMissingParams('Missing number parameter');
         }
-        }
         if (!isset($params['day'])) {
             throw new Ot_Exception_ApiMissingParams('Missing number parameter');
         }
@@ -31,19 +32,25 @@ class App_Apiendpoint_RoomLookup extends Ot_Api_EndpointTemplate
         //Building abbreviation -> building ID
         $buildingTable = new App_Model_DbTable_Building();
         $buildingId = $buildingTable->getBuildingByAbbreviation($buildingAbbreviation);
-        $buildingName = $buildingTable->find($buildingId)['name'];          //Get name of building from buildingId
+        $building = $buildingTable->find($buildingId);          //Get name of building from buildingId
+        $buildingName = $building->name;
+        echo "buildingName $buildingName";
 
-        $roomTable = new App_Model_dbTable_Room();
-        $buildingRooms = $roomTable->getRoomsByBuildingIds($buildingId);    //Get all roomIds in buildingId
-        foreach($buildingRooms as $search)
+        $roomTable = new App_Model_DbTable_Room();
+        $buildingRoomIds = $roomTable->getRoomsByBuildingIds($buildingId);    //Get all roomIds in buildingId //Array
+        foreach($buildingRoomIds as $search)
         {
-            if($roomNumber == $roomTable->find($search)) $roomId = $search;  //Match desired room number to get roomId
+            $searchRoomNumber = $roomTable->find($search)->roomNumber;
+            if($roomNumber == $searchRoomNumber) $roomId = $search;
+            //if($roomNumber == $roomTable->find($search)['roomNumber']) $roomId = $search;  //Match desired room number to get roomId
             //TODO add error catching here
         }
+        echo "roomId $roomId";
 
         $courseTable = new App_Model_DbTable_Course();
         $instructorTable = new App_Model_DbTable_CourseInstructor();
-        $courses = $courseTable->getCoursesByRoomsAndDate($roomId, $day);   //Array of courses in room on day?  //Can also use getCourses?
+        $courses = $courseTable->getCoursesByRoomsAndDate($roomId, $day);   //Array of courses in room on day?  //Can also use getCourses?  //return $this->fetchAll($where, 'startTime ASC');
+        var_dump(gettype($courses));
         $days = array(
             'Mon' => 'monday',
             'Tue' => 'tuesday',
@@ -57,7 +64,7 @@ class App_Apiendpoint_RoomLookup extends Ot_Api_EndpointTemplate
         {
             foreach($days as $d)
             {
-                if($c[$d] == 1) array_push($daysTaught, $d);    //Add days to array
+                if($c[$d] == 1) $daysTaught[] = $d;    //Add days to array
             }
             $courseDetails = array(
                             'buildingName' => $buildingName,
@@ -65,7 +72,7 @@ class App_Apiendpoint_RoomLookup extends Ot_Api_EndpointTemplate
                             'className' => $c['name'],
                             'daysTaught' => $daysTaught,
                             'timeTaught' => $c['startTime'],
-                            'instructorInfo' => instructorTable->find($c);
+                            'instructorInfo' => instructorTable->find($c)->toArray();
             );
             array_push($result, $courseDetails);
         }
